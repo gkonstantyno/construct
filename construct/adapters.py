@@ -5,20 +5,24 @@ from construct.lib import int_to_bin, bin_to_int, swap_bytes
 from construct.lib import FlagsContainer, HexString
 
 
-#===============================================================================
+# =============================================================================
 # exceptions
-#===============================================================================
+# =============================================================================
 class BitIntegerError(AdaptationError):
     pass
+
+
 class MappingError(AdaptationError):
     pass
+
+
 class ValidationError(AdaptationError):
     pass
 
 
-#===============================================================================
+# =============================================================================
 # adapters
-#===============================================================================
+# =============================================================================
 class BitIntegerAdapter(Adapter):
     """
     Adapter for bit-integers (converts bitstrings to integers, and vice versa).
@@ -30,29 +34,33 @@ class BitIntegerAdapter(Adapter):
                     default is False (big endian)
     :param signed: whether the value is signed (two's complement). the default
                    is False (unsigned)
-    :param bytesize: number of bits per byte, used for byte-swapping (if swapped).
-                     default is 8.
+    :param bytesize: number of bits per byte, used for byte-swapping
+                     (if swapped). default is 8.
     """
     __slots__ = ["width", "swapped", "signed", "bytesize"]
-    def __init__(self, subcon, width, swapped = False, signed = False,
-                 bytesize = 8):
+
+    def __init__(self, subcon, width, swapped=False, signed=False,
+                 bytesize=8):
         super(BitIntegerAdapter, self).__init__(subcon)
         self.width = width
         self.swapped = swapped
         self.signed = signed
         self.bytesize = bytesize
+
     def _encode(self, obj, context):
         if obj < 0 and not self.signed:
-            raise BitIntegerError("object is negative, but field is not signed",
-                obj)
-        obj2 = int_to_bin(obj, width = self.width(context) if callable(self.width) else self.width)
+            raise BitIntegerError(
+                "object is negative, but field is not signed", obj)
+        obj2 = int_to_bin(obj, width=self.width(context) if callable(self.width) else self.width)
         if self.swapped:
-            obj2 = swap_bytes(obj2, bytesize = self.bytesize)
+            obj2 = swap_bytes(obj2, bytesize=self.bytesize)
         return obj2
+
     def _decode(self, obj, context):
         if self.swapped:
-            obj = swap_bytes(obj, bytesize = self.bytesize)
-        return bin_to_int(obj, signed = self.signed)
+            obj = swap_bytes(obj, bytesize=self.bytesize)
+        return bin_to_int(obj, signed=self.signed)
+
 
 class MappingAdapter(Adapter):
     """
@@ -70,13 +78,15 @@ class MappingAdapter(Adapter):
                        if ``Pass`` is used, the unmapped object will be passed as-is
     """
     __slots__ = ["encoding", "decoding", "encdefault", "decdefault"]
+
     def __init__(self, subcon, decoding, encoding,
-                 decdefault = NotImplemented, encdefault = NotImplemented):
+                 decdefault=NotImplemented, encdefault=NotImplemented):
         super(MappingAdapter, self).__init__(subcon)
         self.decoding = decoding
         self.encoding = encoding
         self.decdefault = decdefault
         self.encdefault = encdefault
+
     def _encode(self, obj, context):
         try:
             return self.encoding[obj]
@@ -87,6 +97,7 @@ class MappingAdapter(Adapter):
             if self.encdefault is Pass:
                 return obj
             return self.encdefault
+
     def _decode(self, obj, context):
         try:
             return self.decoding[obj]
@@ -98,6 +109,7 @@ class MappingAdapter(Adapter):
                 return obj
             return self.decdefault
 
+
 class FlagsAdapter(Adapter):
     """
     Adapter for flag fields. Each flag is extracted from the number, resulting
@@ -107,9 +119,11 @@ class FlagsAdapter(Adapter):
     :param flags: a dictionary mapping flag-names to their value
     """
     __slots__ = ["flags"]
+
     def __init__(self, subcon, flags):
         super(FlagsAdapter, self).__init__(subcon)
         self.flags = flags
+
     def _encode(self, obj, context):
         flags = 0
         try:
@@ -121,11 +135,13 @@ class FlagsAdapter(Adapter):
         except KeyError:
             raise MappingError("unknown flag: %s" % name)
         return flags
+
     def _decode(self, obj, context):
         obj2 = FlagsContainer()
         for name, value in self.flags.items():
             obj2[name] = bool(obj & value)
         return obj2
+
 
 class StringAdapter(Adapter):
     """
@@ -137,9 +153,11 @@ class StringAdapter(Adapter):
                      return raw bytes (usually 8-bit ASCII).
     """
     __slots__ = ["encoding"]
-    def __init__(self, subcon, encoding = None):
+
+    def __init__(self, subcon, encoding=None):
         super(StringAdapter, self).__init__(subcon)
         self.encoding = encoding
+
     def _encode(self, obj, context):
         if self.encoding:
             if isinstance(self.encoding, str):
@@ -147,6 +165,7 @@ class StringAdapter(Adapter):
             else:
                 obj = self.encoding.encode(obj)
         return obj
+
     def _decode(self, obj, context):
         if not isinstance(obj, bytes):
             obj = b"".join(obj)
@@ -157,6 +176,7 @@ class StringAdapter(Adapter):
                 obj = self.encoding.decode(obj)
         return obj
 
+
 class PaddedStringAdapter(Adapter):
     r"""
     Adapter for padded strings. See String.
@@ -166,19 +186,23 @@ class PaddedStringAdapter(Adapter):
     :param paddir: the direction where padding is placed ("right", "left", or
                    "center"). the default is "right".
     :param trimdir: the direction where trimming will take place ("right" or
-                    "left"). the default is "right". trimming is only meaningful for
-                    building, when the given string is too long.
+                    "left"). the default is "right". trimming is only
+                    meaningful for building, when the given string is too long.
     """
     __slots__ = ["padchar", "paddir", "trimdir"]
-    def __init__(self, subcon, padchar = b"\x00", paddir = "right", trimdir = "right"):
+
+    def __init__(self, subcon, padchar=b"\x00", paddir="right",
+                 trimdir="right"):
         if paddir not in ("right", "left", "center"):
-            raise ValueError("paddir must be 'right', 'left' or 'center'", paddir)
+            raise ValueError("paddir must be 'right', 'left' or 'center'",
+                             paddir)
         if trimdir not in ("right", "left"):
             raise ValueError("trimdir must be 'right' or 'left'", trimdir)
         super(PaddedStringAdapter, self).__init__(subcon)
         self.padchar = padchar
         self.paddir = paddir
         self.trimdir = trimdir
+
     def _decode(self, obj, context):
         if self.paddir == "right":
             obj = obj.rstrip(self.padchar)
@@ -187,6 +211,7 @@ class PaddedStringAdapter(Adapter):
         else:
             obj = obj.strip(self.padchar)
         return obj
+
     def _encode(self, obj, context):
         size = self._sizeof(context)
         if self.paddir == "right":
@@ -202,6 +227,7 @@ class PaddedStringAdapter(Adapter):
                 obj = obj[-size:]
         return obj
 
+
 class LengthValueAdapter(Adapter):
     """
     Adapter for length-value pairs. It extracts only the value from the
@@ -211,10 +237,13 @@ class LengthValueAdapter(Adapter):
     :param subcon: the subcon returning a length-value pair
     """
     __slots__ = []
+
     def _encode(self, obj, context):
         return (len(obj), obj)
+
     def _decode(self, obj, context):
         return obj[1]
+
 
 class CStringAdapter(StringAdapter):
     r"""
@@ -222,17 +251,22 @@ class CStringAdapter(StringAdapter):
 
     :param subcon: the subcon to convert
     :param terminators: a sequence of terminator chars. default is "\x00".
-    :param encoding: the character encoding to use (e.g., "utf8"), or None to return raw-bytes.
-                     the terminator characters are not affected by the encoding.
+    :param encoding: the character encoding to use (e.g., "utf8"),
+                     or None to return raw-bytes. the terminator characters
+                     are not affected by the encoding.
     """
     __slots__ = ["terminators"]
-    def __init__(self, subcon, terminators = b"\x00", encoding = None):
-        super(CStringAdapter, self).__init__(subcon, encoding = encoding)
+
+    def __init__(self, subcon, terminators=b"\x00", encoding=None):
+        super(CStringAdapter, self).__init__(subcon, encoding=encoding)
         self.terminators = terminators
+
     def _encode(self, obj, context):
         return StringAdapter._encode(self, obj, context) + self.terminators[0:1]
+
     def _decode(self, obj, context):
         return StringAdapter._decode(self, b''.join(obj[:-1]), context)
+
 
 class TunnelAdapter(Adapter):
     """
@@ -258,15 +292,19 @@ class TunnelAdapter(Adapter):
 
     """
     __slots__ = ["inner_subcon"]
+
     def __init__(self, subcon, inner_subcon):
         super(TunnelAdapter, self).__init__(subcon)
         self.inner_subcon = inner_subcon
+
     def _decode(self, obj, context):
         return self.inner_subcon._parse(BytesIO(obj), context)
+
     def _encode(self, obj, context):
         stream = BytesIO()
         self.inner_subcon._build(obj, stream, context)
         return stream.getvalue()
+
 
 class ExprAdapter(Adapter):
     """
@@ -275,8 +313,10 @@ class ExprAdapter(Adapter):
     simple expression is needed.
 
     :param subcon: the subcon to adapt
-    :param encoder: a function that takes (obj, context) and returns an encoded version of obj
-    :param decoder: a function that takes (obj, context) and returns an decoded version of obj
+    :param encoder: a function that takes (obj, context) and returns
+                    an encoded version of obj
+    :param decoder: a function that takes (obj, context) and returns
+                    an decoded version of obj
 
     Example::
 
@@ -286,23 +326,29 @@ class ExprAdapter(Adapter):
         )
     """
     __slots__ = ["_encode", "_decode"]
+
     def __init__(self, subcon, encoder, decoder):
         super(ExprAdapter, self).__init__(subcon)
         self._encode = encoder
         self._decode = decoder
+
 
 class HexDumpAdapter(Adapter):
     """
     Adapter for hex-dumping strings. It returns a HexString, which is a string
     """
     __slots__ = ["linesize"]
-    def __init__(self, subcon, linesize = 16):
+
+    def __init__(self, subcon, linesize=16):
         super(HexDumpAdapter, self).__init__(subcon)
         self.linesize = linesize
+
     def _encode(self, obj, context):
         return obj
+
     def _decode(self, obj, context):
-        return HexString(obj, linesize = self.linesize)
+        return HexString(obj, linesize=self.linesize)
+
 
 class SlicingAdapter(Adapter):
     """
@@ -314,16 +360,20 @@ class SlicingAdapter(Adapter):
     :param step: step (or None for every element)
     """
     __slots__ = ["start", "stop", "step"]
-    def __init__(self, subcon, start, stop = None):
+
+    def __init__(self, subcon, start, stop=None):
         super(SlicingAdapter, self).__init__(subcon)
         self.start = start
         self.stop = stop
+
     def _encode(self, obj, context):
         if self.start is None:
             return obj
         return [None] * self.start + obj
+
     def _decode(self, obj, context):
         return obj[self.start:self.stop]
+
 
 class IndexingAdapter(Adapter):
     """
@@ -333,20 +383,23 @@ class IndexingAdapter(Adapter):
     :param index: the index of the list to get
     """
     __slots__ = ["index"]
+
     def __init__(self, subcon, index):
         super(IndexingAdapter, self).__init__(subcon)
         if type(index) is not int:
             raise TypeError("index must be an integer", type(index))
         self.index = index
+
     def _encode(self, obj, context):
         return [None] * self.index + [obj]
+
     def _decode(self, obj, context):
         return obj[self.index]
 
 
-#===============================================================================
+# =============================================================================
 # validators
-#===============================================================================
+# =============================================================================
 class Validator(Adapter):
     """
     Abstract class: validates a condition on the encoded/decoded object.
@@ -355,14 +408,18 @@ class Validator(Adapter):
     :param subcon: the subcon to validate
     """
     __slots__ = []
+
     def _decode(self, obj, context):
         if not self._validate(obj, context):
             raise ValidationError("invalid object", obj)
         return obj
+
     def _encode(self, obj, context):
         return self._decode(obj, context)
+
     def _validate(self, obj, context):
         raise NotImplementedError()
+
 
 class OneOf(Validator):
     """
@@ -388,11 +445,14 @@ class OneOf(Validator):
         construct.core.ValidationError: ('invalid object', 9)
     """
     __slots__ = ["valids"]
+
     def __init__(self, subcon, valids):
         super(OneOf, self).__init__(subcon)
         self.valids = valids
+
     def _validate(self, obj, context):
         return obj in self.valids
+
 
 class NoneOf(Validator):
     """
@@ -411,9 +471,10 @@ class NoneOf(Validator):
         construct.core.ValidationError: ('invalid object', 6)
     """
     __slots__ = ["invalids"]
+
     def __init__(self, subcon, invalids):
         super(NoneOf, self).__init__(subcon)
         self.invalids = invalids
+
     def _validate(self, obj, context):
         return obj not in self.invalids
-

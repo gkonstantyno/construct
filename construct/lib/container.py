@@ -3,7 +3,8 @@ Various containers.
 """
 
 
-def recursion_lock(retval="<recursion detected>", lock_name="__recursion_lock__"):
+def recursion_lock(retval="<recursion detected>",
+                   lock_name="__recursion_lock__"):
     def decorator(func):
         def wrapper(self, *args, **kw):
             if getattr(self, lock_name, False):
@@ -24,14 +25,16 @@ class Container(dict):
     r"""
     Generic ordered dictionary that allows both key and attribute access.
 
-    Containers are dictionaries, translating attribute access into key access, and preserving key order. Also they use call method to add keys, because **kw does not preserve order.
+    Containers are dictionaries, translating attribute access into key access,
+    and preserving key order. Also they use call method to add keys,
+    because **kw does not preserve order.
 
     Structs parse return containers, becuase their fields have order.
 
     Example::
 
         Container([("name","anonymous"),("age",21)])
-        
+
         Container(name="anonymous")(age=21)
 
         # This is NOT correct because keyword arguments order is not preserved.
@@ -39,7 +42,7 @@ class Container(dict):
 
         Container(container2tocopy)
     """
-    __slots__ = ["__keys_order__","__recursion_lock__"]
+    __slots__ = ["__keys_order__", "__recursion_lock__"]
 
     def __init__(self, *args, **kw):
         object.__setattr__(self, "__keys_order__", [])
@@ -79,7 +82,7 @@ class Container(dict):
         """
         Chains adding new entries to the same container. See ctor.
         """
-        for k,v in kw.items():
+        for k, v in kw.items():
             self.__setitem__(k, v)
         return self
 
@@ -89,7 +92,8 @@ class Container(dict):
 
     def pop(self, key, *default):
         """
-        Removes and returns the value for a given key, raises KeyError if not found.
+        Removes and returns the value for a given key,
+        raises KeyError if not found.
         """
         val = dict.pop(self, key, *default)
         self.__keys_order__.remove(key)
@@ -144,11 +148,11 @@ class Container(dict):
         if len(self) != len(other):
             return False
         if skiporder:
-            for k,v in self.iteritems():
+            for k, v in self.iteritems():
                 if k not in other or v != other[k]:
                     return False
         else:
-            for (k,v),(k2,v2) in zip(self.iteritems(), other.iteritems()):
+            for (k, v), (k2, v2) in zip(self.iteritems(), other.iteritems()):
                 if k != k2 or v != v2:
                     return False
         return True
@@ -165,7 +169,8 @@ class Container(dict):
                         items.append(self[key])
                     else:
                         return self[key]
-                if type(self[key]) == Container or type(self[key]) == ListContainer:
+                if (type(self[key]) == Container or
+                        type(self[key]) == ListContainer):
                     ret = self[key]._search(name, search_all)
                     if ret is not None:
                         if search_all:
@@ -188,9 +193,9 @@ class Container(dict):
     @recursion_lock()
     def __repr__(self):
         parts = ["Container"]
-        for k,v in self.iteritems():
+        for k, v in self.iteritems():
             if not k.startswith("_"):
-                parts.extend(["(",str(k),"=",repr(v),")"])
+                parts.extend(["(", str(k), "=", repr(v), ")"])
         if len(parts) == 1:
             parts.append("()")
         return "".join(parts)
@@ -198,7 +203,7 @@ class Container(dict):
     @recursion_lock()
     def __str__(self, indentation="\n    "):
         text = ["Container: "]
-        for k,v in self.iteritems():
+        for k, v in self.iteritems():
             if not k.startswith("_"):
                 text.extend([indentation, k, " = "])
                 text.append(indentation.join(str(v).split("\n")))
@@ -221,7 +226,7 @@ class FlagsContainer(Container):
     @recursion_lock()
     def __str__(self, indentation="\n    "):
         text = ["FlagsContainer: "]
-        for k,v in self.iteritems():
+        for k, v in self.iteritems():
             if not k.startswith("_") and v:
                 text.extend([indentation, k, " = "])
                 lines = str(v).split("\n")
@@ -311,4 +316,3 @@ class LazyContainer(object):
     value = property(_get_value)
 
     has_value = property(lambda self: self._value is not NotImplemented)
-
